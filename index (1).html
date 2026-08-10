@@ -391,13 +391,11 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
         <div>
           <h1>Libro</h1>
           <div class="tagline">Tu control mensual de gastos, en un solo lugar</div>
-          <div class="tagline" id="activeProfileBadge" style="margin-top:4px;font-weight:600;"></div>
         </div>
       </div>
       <div class="header-actions">
         <button class="btn btn-icon" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema"></button>
         <button class="btn" id="btnDriveMenu" title="Sincronizar con Google Drive">☁️ Drive</button>
-        <button class="btn" id="btnAiMenu" title="Asistente financiero con IA">🤖 Asistente IA</button>
         <button class="btn" id="btnBackupExport" title="Exportar todos los datos (JSON)">💾 Respaldo</button>
         <button class="btn" id="btnBackupImport" title="Importar respaldo (JSON)">📥 Restaurar</button>
         <input type="file" id="backupFileInput" accept="application/json" hidden>
@@ -590,57 +588,6 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
   </div>
 </div>
 
-<!-- Modal: Asistente IA (Gemini) -->
-<div class="overlay" id="aiOverlay">
-  <div class="modal" style="max-width:560px;">
-    <div class="modal-head">
-      <div class="modal-title">🤖 Asistente financiero IA</div>
-      <button class="icon-btn" id="closeAiModal">✕</button>
-    </div>
-    <div class="modal-body">
-
-      <div id="aiSetupBlock">
-        <div class="drive-steps">
-          Para usar el asistente necesitás tu propia <strong>API Key de Gemini</strong>, gratuita (una sola vez):<br><br>
-          1. Entrá a <strong>aistudio.google.com/apikey</strong>.<br>
-          2. Iniciá sesión con tu cuenta de Google.<br>
-          3. Tocá <strong>"Create API key"</strong> (podés usar el mismo proyecto de Google Cloud que ya tenés, o uno nuevo).<br>
-          4. Copiá la key que te genera y pegala acá abajo.
-        </div>
-        <div class="drive-warning">⚠️ Tu API Key queda guardada solo en este navegador (localStorage) y se usa para llamar a Gemini directamente desde la app. No la compartas ni la subas a un repo público.</div>
-        <div class="field" style="margin-top:14px;">
-          <label>API Key de Gemini</label>
-          <input class="input" type="password" id="fAiApiKey" placeholder="AIza...">
-        </div>
-        <button class="btn btn-primary" id="btnSaveAiApiKey" style="width:100%;margin-top:8px;">💾 Guardar API Key</button>
-      </div>
-
-      <div id="aiChatBlock" class="hidden">
-        <div class="copy-target" id="aiStatusLabel">🤖 Conectado con Gemini</div>
-
-        <div class="toolbar" style="margin-top:12px;flex-direction:column;align-items:stretch;">
-          <button class="btn btn-primary" id="btnAiAnalyzeMonth">📊 Analizar mi mes actual</button>
-          <button class="btn" id="btnAiAnalyzeTrend">📈 Comparar con meses anteriores</button>
-        </div>
-
-        <div class="field" style="margin-top:14px;">
-          <label>O preguntale algo puntual</label>
-          <textarea id="fAiQuestion" placeholder="Ej: ¿en qué categoría estoy gastando de más? ¿me conviene ese objetivo de ahorro con mi balance actual?"></textarea>
-        </div>
-        <button class="btn btn-primary" id="btnAiAsk" style="width:100%;">✨ Preguntar</button>
-
-        <div id="aiResponseBlock" class="hidden" style="margin-top:16px;">
-          <div class="drive-steps" id="aiResponseText" style="white-space:pre-wrap;line-height:1.6;"></div>
-        </div>
-        <div id="aiLoading" class="hidden" style="text-align:center;padding:16px;color:var(--ink-faint);font-size:13px;">🤖 Pensando...</div>
-
-        <button class="btn btn-sm" id="btnAiEditApiKey" style="margin-top:14px;">Cambiar API Key</button>
-      </div>
-
-    </div>
-  </div>
-</div>
-
 <!-- Modal: ingreso / recibo de sueldo -->
 <div class="overlay" id="incomeOverlay">
   <div class="modal">
@@ -771,14 +718,6 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
 
 const STORAGE_KEY = 'libro_gastos_v1';
 
-/* ---------------- Perfiles (aislar datos por cuenta de Google) ---------------- */
-// Cada cuenta de Google que se conecta tiene su propio "balde" de datos en localStorage,
-// identificado por su email. Sin conectar ninguna cuenta, se usa el balde "invitado" (compatible
-// con instalaciones previas a esta función, que guardaban todo bajo STORAGE_KEY a secas).
-let activeProfile = localStorage.getItem('libro_active_profile') || null;
-function storageKeyFor(profile){ return profile ? `${STORAGE_KEY}__${profile}` : STORAGE_KEY; }
-function profileScopedKey(base, profile){ return profile ? `${base}__${profile}` : `${base}__guest`; }
-
 const CATEGORIES = [
   { id: 'alimentacion', label: 'Alimentación', color: '#C0722F', emoji: '🍔' },
   { id: 'transporte',   label: 'Transporte',   color: '#3A6EA5', emoji: '🚗' },
@@ -795,7 +734,7 @@ const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','A
 
 /* ---------------- Persistencia ---------------- */
 function loadData(){
-  const raw = localStorage.getItem(storageKeyFor(activeProfile));
+  const raw = localStorage.getItem(STORAGE_KEY);
   if(raw){
     try { return JSON.parse(raw); } catch(e){ console.error('Datos corruptos, iniciando de nuevo', e); }
   }
@@ -810,7 +749,7 @@ function loadData(){
   };
 }
 function saveData(){
-  localStorage.setItem(storageKeyFor(activeProfile), JSON.stringify(state));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
 let state = loadData();
@@ -1737,20 +1676,13 @@ document.addEventListener('keydown', (e)=>{
 });
 
 let pendingConfirmCallback = null;
-let pendingConfirmCancelCallback = null;
-function confirmAction(title, msg, onConfirm, onCancel){
+function confirmAction(title, msg, onConfirm){
   document.getElementById('confirmTitle').textContent = title;
   document.getElementById('confirmMsg').textContent = msg;
   pendingConfirmCallback = onConfirm;
-  pendingConfirmCancelCallback = onCancel || null;
   openModal('confirmOverlay');
 }
-document.getElementById('confirmCancel').addEventListener('click', ()=>{
-  pendingConfirmCallback=null;
-  const cancelCb = pendingConfirmCancelCallback; pendingConfirmCancelCallback = null;
-  closeModal('confirmOverlay');
-  if(cancelCb) cancelCb();
-});
+document.getElementById('confirmCancel').addEventListener('click', ()=>{ pendingConfirmCallback=null; closeModal('confirmOverlay'); });
 document.getElementById('confirmOk').addEventListener('click', ()=>{
   if(pendingConfirmCallback) pendingConfirmCallback();
   pendingConfirmCallback = null;
@@ -1824,13 +1756,12 @@ document.getElementById('btnExportPdf').addEventListener('click', async ()=>{
 });
 
 /* ---------------- Google Drive ---------------- */
-// Pedimos también el email de la cuenta para poder aislar los datos por usuario (ver "Perfiles" arriba).
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const DRIVE_FILE_NAME = 'libro_gastos_backup.json';
 let driveClientId = localStorage.getItem('libro_drive_client_id') || '';
 let driveAccessToken = null;
 let driveTokenClient = null;
-let driveFileId = localStorage.getItem(profileScopedKey('libro_drive_file_id', activeProfile)) || null;
+let driveFileId = localStorage.getItem('libro_drive_file_id') || null;
 
 document.getElementById('btnDriveMenu').addEventListener('click', openDriveModal);
 document.getElementById('closeDriveModal').addEventListener('click', ()=>closeModal('driveOverlay'));
@@ -1870,7 +1801,7 @@ function updateDriveStatusUI(){
   const actionsBlock = document.getElementById('driveActionsBlock');
   const connectBtn = document.getElementById('btnDriveConnect');
   if(driveAccessToken){
-    statusLabel.textContent = activeProfile ? `☁️ Conectado como ${activeProfile}` : '☁️ Conectado a Google Drive';
+    statusLabel.textContent = '☁️ Conectado a Google Drive';
     actionsBlock.classList.remove('hidden');
     connectBtn.classList.add('hidden');
   } else {
@@ -1878,59 +1809,8 @@ function updateDriveStatusUI(){
     actionsBlock.classList.add('hidden');
     connectBtn.classList.remove('hidden');
   }
-  const lastSync = localStorage.getItem(profileScopedKey('libro_drive_last_sync', activeProfile));
+  const lastSync = localStorage.getItem('libro_drive_last_sync');
   document.getElementById('driveLastSync').textContent = lastSync ? `Último guardado: ${lastSync}` : '';
-}
-
-/* ---------------- Cambio de perfil (aislar datos por cuenta) ---------------- */
-function updateActiveProfileBadge(){
-  const badge = document.getElementById('activeProfileBadge');
-  badge.textContent = activeProfile ? `👤 ${activeProfile}` : '👤 Invitado (sin cuenta conectada)';
-}
-
-// Recarga el estado completo (gastos, ingresos, objetivo, etc.) desde el balde
-// de localStorage que le corresponde al perfil activo, y refresca toda la UI.
-function reloadStateForActiveProfile(){
-  state = loadData();
-  if(!state.folders) state.folders = [];
-  driveFileId = localStorage.getItem(profileScopedKey('libro_drive_file_id', activeProfile)) || null;
-  updateActiveProfileBadge();
-  applyTheme();
-  renderAll();
-}
-
-// Cambia el perfil activo a `email` (o `null` para volver a modo invitado).
-// Si es la primera vez que esa cuenta se conecta en este dispositivo y hay datos
-// sueltos en modo invitado, ofrece migrarlos a esa cuenta (para no perder el
-// historial de quien ya venía usando la app sin login).
-function switchProfile(email){
-  if(email === activeProfile) return;
-  const doSwitch = ()=>{
-    activeProfile = email;
-    localStorage.setItem('libro_active_profile', email || '');
-    reloadStateForActiveProfile();
-  };
-  if(email){
-    const alreadyHasData = !!localStorage.getItem(storageKeyFor(email));
-    const alreadyMigrated = localStorage.getItem('libro_migrated__' + email);
-    const guestRaw = localStorage.getItem(storageKeyFor(null));
-    if(!alreadyHasData && !alreadyMigrated && guestRaw){
-      confirmAction(
-        '👤 Vincular datos de este dispositivo',
-        `Encontramos datos guardados en este dispositivo sin ninguna cuenta asociada. ¿Querés asociarlos a ${email}? Si tocás "Cancelar", esa cuenta arranca con datos vacíos y los datos sueltos quedan como estaban.`,
-        ()=>{
-          localStorage.setItem(storageKeyFor(email), guestRaw);
-          localStorage.setItem('libro_migrated__' + email, '1');
-          doSwitch();
-        },
-        ()=>{ doSwitch(); }
-      );
-    } else {
-      doSwitch();
-    }
-  } else {
-    doSwitch();
-  }
 }
 
 document.getElementById('btnDriveConnect').addEventListener('click', ()=>{
@@ -1945,18 +1825,9 @@ document.getElementById('btnDriveConnect').addEventListener('click', ()=>{
   driveTokenClient = google.accounts.oauth2.initTokenClient({
     client_id: driveClientId,
     scope: DRIVE_SCOPE,
-    callback: async (resp)=>{
+    callback: (resp)=>{
       if(resp.error){ showToast('⚠️ No se pudo conectar con Google Drive'); return; }
       driveAccessToken = resp.access_token;
-      try{
-        const infoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${driveAccessToken}` }
-        });
-        if(infoRes.ok){
-          const info = await infoRes.json();
-          if(info.email) switchProfile(info.email);
-        }
-      }catch(err){ console.error('No se pudo obtener el email de la cuenta', err); }
       updateDriveStatusUI();
       showToast('✅ Conectado a Google Drive');
     }
@@ -1969,7 +1840,6 @@ document.getElementById('btnDriveDisconnect').addEventListener('click', ()=>{
   driveAccessToken = null;
   updateDriveStatusUI();
   showToast('☁️ Desconectado de Google Drive');
-  switchProfile(null); // vuelve a modo invitado, así el próximo que use el dispositivo no ve tus datos
 });
 
 async function driveFindFile(){
@@ -2010,9 +1880,9 @@ document.getElementById('btnDriveSave').addEventListener('click', async ()=>{
     if(!res.ok) throw new Error('Drive error ' + res.status);
     const data = await res.json();
     driveFileId = data.id;
-    localStorage.setItem(profileScopedKey('libro_drive_file_id', activeProfile), driveFileId);
+    localStorage.setItem('libro_drive_file_id', driveFileId);
     const now = new Date().toLocaleString('es-AR');
-    localStorage.setItem(profileScopedKey('libro_drive_last_sync', activeProfile), now);
+    localStorage.setItem('libro_drive_last_sync', now);
     updateDriveStatusUI();
     showToast('✅ Datos guardados en tu Google Drive');
   }catch(err){
@@ -2041,7 +1911,7 @@ document.getElementById('btnDriveLoad').addEventListener('click', async ()=>{
       state = parsed;
       if(!state.folders) state.folders = [];
       driveFileId = fileId;
-      localStorage.setItem(profileScopedKey('libro_drive_file_id', activeProfile), fileId);
+      localStorage.setItem('libro_drive_file_id', fileId);
       saveData();
       applyTheme();
       renderAll();
@@ -2052,141 +1922,6 @@ document.getElementById('btnDriveLoad').addEventListener('click', async ()=>{
     console.error(err);
     showToast('⚠️ No se pudo cargar desde Drive');
   }
-});
-
-/* ---------------- Asistente IA (Gemini) ---------------- */
-const GEMINI_MODEL = 'gemini-2.5-flash';
-let geminiApiKey = localStorage.getItem('libro_gemini_api_key') || '';
-
-function updateAiModalUI(){
-  const setupBlock = document.getElementById('aiSetupBlock');
-  const chatBlock = document.getElementById('aiChatBlock');
-  if(geminiApiKey){
-    setupBlock.classList.add('hidden');
-    chatBlock.classList.remove('hidden');
-  } else {
-    setupBlock.classList.remove('hidden');
-    chatBlock.classList.add('hidden');
-  }
-}
-
-document.getElementById('btnAiMenu').addEventListener('click', ()=>{
-  document.getElementById('aiResponseBlock').classList.add('hidden');
-  updateAiModalUI();
-  openModal('aiOverlay');
-});
-document.getElementById('closeAiModal').addEventListener('click', ()=>closeModal('aiOverlay'));
-
-document.getElementById('btnSaveAiApiKey').addEventListener('click', ()=>{
-  const val = document.getElementById('fAiApiKey').value.trim();
-  if(!val){ showToast('⚠️ Pegá tu API Key de Gemini'); return; }
-  geminiApiKey = val;
-  localStorage.setItem('libro_gemini_api_key', geminiApiKey);
-  showToast('✅ API Key guardada');
-  updateAiModalUI();
-});
-document.getElementById('btnAiEditApiKey').addEventListener('click', ()=>{
-  document.getElementById('fAiApiKey').value = geminiApiKey;
-  document.getElementById('aiSetupBlock').classList.remove('hidden');
-  document.getElementById('aiChatBlock').classList.add('hidden');
-});
-
-/* Arma un resumen en texto plano de un mes, para pasarle contexto a Gemini */
-function buildMonthContext(key){
-  const m = getMonthData(key);
-  const total = m.expenses.reduce((s,e)=>s+Number(e.monto||0),0);
-  const pagado = m.expenses.filter(e=>e.estado==='pagado').reduce((s,e)=>s+Number(e.monto||0),0);
-  const ingresos = m.incomes.reduce((s,i)=>s+Number(i.monto||0),0);
-  const porCategoria = {};
-  m.expenses.forEach(e=>{
-    const cat = catInfo(e.categoria).label;
-    porCategoria[cat] = (porCategoria[cat]||0) + Number(e.monto||0);
-  });
-  const catLines = Object.entries(porCategoria)
-    .sort((a,b)=>b[1]-a[1])
-    .map(([cat,monto])=>`  - ${cat}: ${formatMoney(monto)}`).join('\n') || '  (sin gastos cargados)';
-  return `${monthLabel(key)}:\n`+
-    `- Ingresos: ${formatMoney(ingresos)}\n`+
-    `- Total gastado: ${formatMoney(total)} (pagado: ${formatMoney(pagado)}, pendiente: ${formatMoney(total-pagado)})\n`+
-    `- Balance: ${formatMoney(ingresos-total)}\n`+
-    `- Gastos por categoría:\n${catLines}`;
-}
-
-function buildGoalContext(){
-  const g = state.savingsGoal;
-  if(!g) return 'No tiene un objetivo de ahorro configurado.';
-  return `Objetivo de ahorro: "${g.name}" — meta ${formatMoney(g.target)}, ahorrado hasta ahora ${formatMoney(g.saved)}.`;
-}
-
-async function callGemini(prompt){
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': geminiApiKey
-    },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
-    })
-  });
-  if(!res.ok){
-    const errBody = await res.text().catch(()=> '');
-    throw new Error(`Gemini error ${res.status}: ${errBody}`);
-  }
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('') || '';
-  if(!text) throw new Error('Respuesta vacía de Gemini');
-  return text;
-}
-
-function showAiResponse(text){
-  document.getElementById('aiResponseText').textContent = text;
-  document.getElementById('aiResponseBlock').classList.remove('hidden');
-}
-
-async function runAiPrompt(prompt){
-  if(!geminiApiKey){ showToast('⚠️ Guardá tu API Key de Gemini primero'); return; }
-  document.getElementById('aiLoading').classList.remove('hidden');
-  document.getElementById('aiResponseBlock').classList.add('hidden');
-  try{
-    const text = await callGemini(prompt);
-    showAiResponse(text);
-  }catch(err){
-    console.error(err);
-    showToast('⚠️ No se pudo consultar al asistente. Revisá tu API Key.');
-  }finally{
-    document.getElementById('aiLoading').classList.add('hidden');
-  }
-}
-
-document.getElementById('btnAiAnalyzeMonth').addEventListener('click', ()=>{
-  const prompt =
-    `Sos un asistente financiero personal que habla en español rioplatense, cercano y directo, sin tecnicismos innecesarios.\n\n`+
-    `Estos son los datos del mes actual del usuario:\n\n${buildMonthContext(state.currentMonth)}\n\n${buildGoalContext()}\n\n`+
-    `Dame un análisis breve (máximo 6-8 líneas): en qué se le va más la plata, si el balance del mes es sano, y 2-3 sugerencias concretas y accionables. No repitas los números tal cual, interpretalos.`;
-  runAiPrompt(prompt);
-});
-
-document.getElementById('btnAiAnalyzeTrend').addEventListener('click', ()=>{
-  const keys = allMonthKeysSorted().slice(-4); // hasta los últimos 4 meses cargados
-  const contexts = keys.map(k=>buildMonthContext(k)).join('\n\n');
-  const prompt =
-    `Sos un asistente financiero personal que habla en español rioplatense, cercano y directo.\n\n`+
-    `Estos son los datos de los últimos meses del usuario:\n\n${contexts}\n\n${buildGoalContext()}\n\n`+
-    `Compará la evolución mes a mes (máximo 8-10 líneas): identificá tendencias (¿gasta cada vez más o menos?, ¿en qué categoría?), si el balance mejora o empeora, y si va bien encaminado hacia su objetivo de ahorro. Sé concreto, no repitas todos los números.`;
-  runAiPrompt(prompt);
-});
-
-document.getElementById('btnAiAsk').addEventListener('click', ()=>{
-  const question = document.getElementById('fAiQuestion').value.trim();
-  if(!question){ showToast('⚠️ Escribí una pregunta'); return; }
-  const prompt =
-    `Sos un asistente financiero personal que habla en español rioplatense, cercano y directo.\n\n`+
-    `Datos del mes actual del usuario:\n\n${buildMonthContext(state.currentMonth)}\n\n${buildGoalContext()}\n\n`+
-    `Pregunta del usuario: "${question}"\n\n`+
-    `Respondé de forma breve y concreta, basándote en los datos de arriba cuando aplique.`;
-  runAiPrompt(prompt);
 });
 
 /* ---------------- Copia de seguridad JSON ---------------- */
@@ -2240,7 +1975,6 @@ function renderAll(){
   renderCards();
 }
 
-updateActiveProfileBadge();
 applyTheme();
 renderAll();
 </script>
