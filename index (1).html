@@ -9,9 +9,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-<!-- Google Identity Services, para conectar con Google Drive -->
-<script src="https://accounts.google.com/gsi/client" async defer></script>
-
 <!-- Librerías para exportación (PDF / PNG) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -320,33 +317,6 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
 .folder-empty{color:var(--ink-faint);font-size:13px;}
 .cell-folder{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;color:var(--ink-faint);margin-top:2px;}
 .cell-folder .folder-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
-.expense-table tbody tr[draggable="true"]{cursor:grab;}
-.expense-table tbody tr.dragging{opacity:.35;}
-.folder-chip.drag-over{outline:2px dashed var(--brand);outline-offset:1px;background:var(--brand-soft);color:var(--brand);}
-.folder-chip.unassign{background:var(--bg-soft);border-style:dashed;color:var(--ink-faint);}
-.folder-hint{font-size:11.5px;color:var(--ink-faint);width:100%;margin-top:-2px;}
-
-/* ---------- Detalle de ítems (tarjeta / ingresos) ---------- */
-.item-input-row{display:grid;grid-template-columns:1fr 100px auto;gap:6px;}
-.item-list{display:flex;flex-direction:column;gap:5px;margin-top:8px;max-height:160px;overflow-y:auto;}
-.item-row{
-  display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--surface-2);
-  border-radius:7px;font-size:12.5px;
-}
-.item-row .item-concepto{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.item-row .item-monto{font-family:var(--font-mono);color:var(--ink-soft);}
-.item-row button{width:22px;height:22px;border-radius:6px;border:none;background:transparent;color:var(--ink-faint);flex-shrink:0;}
-.item-row button:hover{color:var(--danger);background:var(--danger-soft);}
-.item-total{text-align:right;font-size:12px;font-weight:700;color:var(--brand);margin-top:6px;}
-
-/* ---------- Google Drive ---------- */
-.hidden{display:none !important;}
-.drive-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
-.drive-steps{font-size:12.5px;color:var(--ink-soft);line-height:1.7;background:var(--bg-soft);padding:14px;border-radius:var(--radius-sm);}
-.drive-warning{
-  display:flex;gap:8px;font-size:11.5px;color:var(--pending);background:var(--pending-soft);
-  padding:10px 12px;border-radius:var(--radius-sm);margin-top:10px;line-height:1.5;
-}
 
 /* ---------- Footer / acciones globales ---------- */
 .footer-actions{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:36px;}
@@ -395,8 +365,6 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
       </div>
       <div class="header-actions">
         <button class="btn btn-icon" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema"></button>
-        <button class="btn" id="btnDriveMenu" title="Sincronizar con Google Drive">☁️ Drive</button>
-        <button class="btn" id="btnAiMenu" title="Asistente financiero con IA">🤖 Asistente IA</button>
         <button class="btn" id="btnBackupExport" title="Exportar todos los datos (JSON)">💾 Respaldo</button>
         <button class="btn" id="btnBackupImport" title="Importar respaldo (JSON)">📥 Restaurar</button>
         <input type="file" id="backupFileInput" accept="application/json" hidden>
@@ -427,14 +395,6 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
         <button class="btn btn-sm" id="btnEditGoal">✏️ Editar objetivo</button>
       </div>
       <div class="panel goal-panel" id="goalPanel"></div>
-    </div>
-
-    <div class="section">
-      <div class="section-head">
-        <div class="section-title">💵 Ingresos / Sueldo <span class="count" id="incomeCount">0</span></div>
-        <button class="btn btn-primary btn-sm" id="btnAddIncome">➕ Agregar recibo de sueldo</button>
-      </div>
-      <div class="panel attach-grid" id="incomeGrid"></div>
     </div>
 
     <div class="section">
@@ -547,126 +507,6 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
   </div>
 </div>
 
-<!-- Modal: Google Drive -->
-<div class="overlay" id="driveOverlay">
-  <div class="modal">
-    <div class="modal-head">
-      <div class="modal-title">☁️ Google Drive</div>
-      <button class="icon-btn" id="closeDriveModal">✕</button>
-    </div>
-    <div class="modal-body">
-
-      <div id="driveSetupBlock">
-        <div class="drive-steps">
-          Para guardar tus datos en Google Drive necesitás tu propio <strong>Client ID</strong> gratuito (una sola vez):<br><br>
-          1. Entrá a <strong>console.cloud.google.com</strong> y creá un proyecto.<br>
-          2. Activá la <strong>Google Drive API</strong>.<br>
-          3. En "Credenciales" creá un <strong>ID de cliente de OAuth</strong> tipo "Aplicación web".<br>
-          4. En "Orígenes de JavaScript autorizados" agregá la URL desde la que abrís esta app.<br>
-          5. Pegá acá el Client ID que te da Google.
-        </div>
-        <div class="drive-warning">⚠️ Esto no funciona abriendo el archivo directo desde tu computadora (file://). Necesitás subir esta app a un hosting con http/https (por ejemplo GitHub Pages, gratis).</div>
-        <div class="field" style="margin-top:14px;">
-          <label>Client ID de Google</label>
-          <input class="input" type="text" id="fDriveClientId" placeholder="xxxxxxxxxx.apps.googleusercontent.com">
-        </div>
-        <button class="btn btn-primary" id="btnSaveDriveClientId" style="width:100%;margin-top:8px;">💾 Guardar Client ID</button>
-      </div>
-
-      <div id="driveConnectBlock" class="hidden">
-        <div class="copy-target" id="driveStatusLabel">☁️ No conectado</div>
-        <button class="btn btn-primary" id="btnDriveConnect" style="width:100%;margin-top:12px;">🔐 Conectar con Google Drive</button>
-        <div class="drive-actions hidden" id="driveActionsBlock">
-          <button class="btn" id="btnDriveSave">☁️⬆️ Guardar en Drive</button>
-          <button class="btn" id="btnDriveLoad">☁️⬇️ Cargar desde Drive</button>
-          <button class="btn btn-danger" id="btnDriveDisconnect">Desconectar</button>
-        </div>
-        <div style="font-size:11px;color:var(--ink-faint);margin-top:10px;" id="driveLastSync"></div>
-        <button class="btn btn-sm" id="btnDriveEditClientId" style="margin-top:10px;">Cambiar Client ID</button>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<!-- Modal: Asistente IA (Gemini) -->
-<div class="overlay" id="aiOverlay">
-  <div class="modal" style="max-width:560px;">
-    <div class="modal-head">
-      <div class="modal-title">🤖 Asistente financiero IA</div>
-      <button class="icon-btn" id="closeAiModal">✕</button>
-    </div>
-    <div class="modal-body">
-
-      <div id="aiSetupBlock">
-        <div class="drive-steps">
-          Para usar el asistente necesitás tu propia <strong>API Key de Gemini</strong>, gratuita (una sola vez):<br><br>
-          1. Entrá a <strong>aistudio.google.com/apikey</strong>.<br>
-          2. Iniciá sesión con tu cuenta de Google.<br>
-          3. Tocá <strong>"Create API key"</strong> (podés usar el mismo proyecto de Google Cloud que ya tenés, o uno nuevo).<br>
-          4. Copiá la key que te genera y pegala acá abajo.
-        </div>
-        <div class="drive-warning">⚠️ Tu API Key queda guardada solo en este navegador (localStorage) y se usa para llamar a Gemini directamente desde la app. No la compartas ni la subas a un repo público.</div>
-        <div class="field" style="margin-top:14px;">
-          <label>API Key de Gemini</label>
-          <input class="input" type="password" id="fAiApiKey" placeholder="AIza...">
-        </div>
-        <button class="btn btn-primary" id="btnSaveAiApiKey" style="width:100%;margin-top:8px;">💾 Guardar API Key</button>
-      </div>
-
-      <div id="aiChatBlock" class="hidden">
-        <div class="copy-target" id="aiStatusLabel">🤖 Conectado con Gemini</div>
-
-        <div class="toolbar" style="margin-top:12px;flex-direction:column;align-items:stretch;">
-          <button class="btn btn-primary" id="btnAiAnalyzeMonth">📊 Analizar mi mes actual</button>
-          <button class="btn" id="btnAiAnalyzeTrend">📈 Comparar con meses anteriores</button>
-        </div>
-
-        <div class="field" style="margin-top:14px;">
-          <label>O preguntale algo puntual</label>
-          <textarea id="fAiQuestion" placeholder="Ej: ¿en qué categoría estoy gastando de más? ¿me conviene ese objetivo de ahorro con mi balance actual?"></textarea>
-        </div>
-        <button class="btn btn-primary" id="btnAiAsk" style="width:100%;">✨ Preguntar</button>
-
-        <div id="aiResponseBlock" class="hidden" style="margin-top:16px;">
-          <div class="drive-steps" id="aiResponseText" style="white-space:pre-wrap;line-height:1.6;"></div>
-        </div>
-        <div id="aiLoading" class="hidden" style="text-align:center;padding:16px;color:var(--ink-faint);font-size:13px;">🤖 Pensando...</div>
-
-        <button class="btn btn-sm" id="btnAiEditApiKey" style="margin-top:14px;">Cambiar API Key</button>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<!-- Modal: ingreso / recibo de sueldo -->
-<div class="overlay" id="incomeOverlay">
-  <div class="modal">
-    <div class="modal-head">
-      <div class="modal-title" id="incomeModalTitle">💵 Nuevo ingreso</div>
-      <button class="icon-btn" id="closeIncomeModal">✕</button>
-    </div>
-    <div class="modal-body">
-      <div class="field"><label>Concepto</label><input class="input" type="text" id="fIncomeConcepto" placeholder="Ej: Sueldo, Aguinaldo, Extra..."></div>
-      <div class="field-row">
-        <div class="field"><label>Monto a cobrar</label><input class="input" type="number" id="fIncomeMonto" step="0.01" placeholder="0.00"></div>
-        <div class="field"><label>Fecha</label><input class="input" type="date" id="fIncomeFecha"></div>
-      </div>
-      <div class="field">
-        <label>Adjuntar recibo de sueldo (PDF o imagen, opcional)</label>
-        <input class="input" type="file" id="fIncomeArchivo" accept="application/pdf,image/*">
-        <div id="incomeArchivoActual" style="font-size:12px;color:var(--ink-faint);margin-top:6px;"></div>
-        <div style="font-size:11.5px;color:var(--ink-faint);margin-top:6px;">📎 Adjuntá el recibo como respaldo. El monto que escribas arriba es el que se suma a tus ingresos del mes.</div>
-      </div>
-    </div>
-    <div class="modal-foot">
-      <button class="btn" id="cancelIncome">Cancelar</button>
-      <button class="btn btn-primary" id="saveIncome">💾 Guardar ingreso</button>
-    </div>
-  </div>
-</div>
-
 <!-- Modal: copiar gastos al mes siguiente -->
 <div class="overlay" id="copyOverlay">
   <div class="modal">
@@ -699,18 +539,6 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
     </div>
     <div class="modal-body">
       <div class="field"><label>Nombre de la tarjeta</label><input class="input" type="text" id="fCardNombre" placeholder="Ej: Visa, Mastercard..."></div>
-
-      <div class="field">
-        <label>🧾 Detalle de gastos (opcional)</label>
-        <div class="item-input-row">
-          <input class="input" type="text" id="fCardItemConcepto" placeholder="Concepto (ej: Supermercado)">
-          <input class="input" type="number" id="fCardItemMonto" step="0.01" placeholder="Monto">
-          <button class="btn btn-sm" type="button" id="btnAddCardItem">➕</button>
-        </div>
-        <div class="item-list" id="cardItemList"></div>
-        <div class="item-total" id="cardItemTotal"></div>
-      </div>
-
       <div class="field-row">
         <div class="field"><label>Monto del resumen</label><input class="input" type="number" id="fCardMonto" step="0.01" placeholder="0.00"></div>
         <div class="field"><label>Vencimiento</label><input class="input" type="date" id="fCardVenc"></div>
@@ -797,7 +625,7 @@ function loadData(){
     currentMonth,
     savingsGoal: null,
     folders: [],
-    months: { [currentMonth]: { expenses: [], cards: [], incomes: [] } }
+    months: { [currentMonth]: { expenses: [], cards: [] } }
   };
 }
 function saveData(){
@@ -815,9 +643,8 @@ function monthLabel(key){
 }
 function getMonthData(key){
   // Al crear un mes nuevo, TODOS los gastos empiezan sin heredar el estado "pagado" del mes anterior.
-  if(!state.months[key]) state.months[key] = { expenses: [], cards: [], incomes: [] };
+  if(!state.months[key]) state.months[key] = { expenses: [], cards: [] };
   if(!state.months[key].cards) state.months[key].cards = []; // compatibilidad con datos previos
-  if(!state.months[key].incomes) state.months[key].incomes = []; // compatibilidad con datos previos
   return state.months[key];
 }
 function currentMonthData(){ return getMonthData(state.currentMonth); }
@@ -921,23 +748,15 @@ function shiftDateToMonth(fechaIso, targetMonthKey){
 function renderSummary(){
   const expenses = currentMonthData().expenses;
   const cards = currentMonthData().cards;
-  const incomes = currentMonthData().incomes;
   const total = expenses.reduce((s,e)=>s+Number(e.monto||0),0);
   const pagado = expenses.filter(e=>e.estado==='pagado').reduce((s,e)=>s+Number(e.monto||0),0);
   const pendiente = total - pagado;
   const cardsPendientes = cards.filter(c=>c.estado!=='pagado').reduce((s,c)=>s+Number(c.monto||0),0);
   const cardsSinPagar = cards.filter(c=>c.estado!=='pagado').length;
-  const totalIngresos = incomes.reduce((s,i)=>s+Number(i.monto||0),0);
-  const balance = totalIngresos - total;
   const grid = document.getElementById('summaryGrid');
   grid.innerHTML = `
     <div class="stat-card">
-      <div class="stat-label">💵 Ingresos del mes</div>
-      <div class="stat-value paid">${formatMoney(totalIngresos)}</div>
-      <div class="stat-sub">${incomes.length} recibo(s) cargado(s)</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">💰 Total gastado</div>
+      <div class="stat-label">💰 Total del mes</div>
       <div class="stat-value">${formatMoney(total)}</div>
       <div class="stat-sub">${monthLabel(state.currentMonth)}</div>
     </div>
@@ -950,11 +769,6 @@ function renderSummary(){
       <div class="stat-label">⏳ Pendiente</div>
       <div class="stat-value pending">${formatMoney(pendiente)}</div>
       <div class="stat-sub">${total? Math.round(pendiente/total*100):0}% del total</div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-label">⚖️ Balance del mes</div>
-      <div class="stat-value ${balance>=0?'paid':'pending'}">${formatMoney(balance)}</div>
-      <div class="stat-sub">Ingresos − gastos</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">🧾 Cantidad de gastos</div>
@@ -1097,7 +911,7 @@ function renderExpenseTable(){
     const c = catInfo(exp.categoria);
     const f = exp.carpetaId ? getFolder(exp.carpetaId) : null;
     return `
-    <tr data-id="${exp.id}" draggable="true" title="Arrastrá este gasto hasta una carpeta para asignarlo">
+    <tr data-id="${exp.id}">
       <td data-label="Fecha">${formatDate(exp.fecha)}</td>
       <td data-label="Descripción">
         <div class="cell-desc">${escapeHtml(exp.descripcion)}</div>
@@ -1131,17 +945,6 @@ function renderExpenseTable(){
 }
 
 // Delegación de eventos para acciones de fila
-document.getElementById('expenseTableBody').addEventListener('dragstart', (e)=>{
-  const tr = e.target.closest('tr[data-id]');
-  if(!tr) return;
-  e.dataTransfer.setData('text/plain', tr.dataset.id);
-  e.dataTransfer.effectAllowed = 'move';
-  tr.classList.add('dragging');
-});
-document.getElementById('expenseTableBody').addEventListener('dragend', (e)=>{
-  const tr = e.target.closest('tr[data-id]');
-  if(tr) tr.classList.remove('dragging');
-});
 document.getElementById('expenseTableBody').addEventListener('click', (e)=>{
   const btn = e.target.closest('button[data-action]');
   if(!btn) return;
@@ -1321,119 +1124,9 @@ document.getElementById('confirmCopy').addEventListener('click', ()=>{
   renderMonthSelect(); // el mes destino ya puede existir como opción nueva
 });
 
-/* ---------------- Ingresos / Recibo de sueldo ---------------- */
-let editingIncomeId = null;
-let pendingIncomeFile = null; // { name, type, dataUrl }
-
-function renderIncomes(){
-  const grid = document.getElementById('incomeGrid');
-  const list = currentMonthData().incomes;
-  document.getElementById('incomeCount').textContent = list.length;
-
-  if(list.length === 0){
-    grid.innerHTML = `<div class="empty-state" style="grid-column:1/-1;padding:32px 16px;">
-      <div style="font-size:32px;margin-bottom:8px;">💵</div>
-      <p>Todavía no cargaste ningún ingreso este mes. Agregá tu recibo de sueldo para llevar la cuenta.</p>
-    </div>`;
-    return;
-  }
-
-  grid.innerHTML = list.map(inc => `
-    <div class="attach-card" data-id="${inc.id}">
-      <div class="attach-thumb">
-        ${inc.fileDataUrl
-          ? (inc.fileType && inc.fileType.startsWith('image/')
-              ? `<img src="${inc.fileDataUrl}" alt="${escapeHtml(inc.fileName)}">`
-              : `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>`)
-          : `<span style="font-size:26px;">💵</span>`}
-      </div>
-      <div class="attach-name" title="${escapeHtml(inc.concepto)}">💵 ${escapeHtml(inc.concepto || 'Ingreso')}</div>
-      <div style="font-family:var(--font-mono);font-size:13px;font-weight:600;color:var(--paid);">${formatMoney(inc.monto)}</div>
-      ${inc.fecha ? `<div style="font-size:11px;color:var(--ink-faint);">📅 ${formatDate(inc.fecha)}</div>` : ''}
-      <div style="display:flex;gap:6px;">
-        ${inc.fileDataUrl ? `<a class="btn btn-sm" style="flex:1;text-align:center;" href="${inc.fileDataUrl}" download="${escapeHtml(inc.fileName||'recibo')}">👁️ Ver</a>` : ''}
-        <button class="btn btn-sm" style="flex:1;" data-action="edit-income" data-id="${inc.id}">✏️ Editar</button>
-      </div>
-      <button class="attach-remove" data-action="remove-income" data-id="${inc.id}" title="Eliminar">✕</button>
-    </div>`).join('');
-}
-
-document.getElementById('incomeGrid').addEventListener('click', (e)=>{
-  const btn = e.target.closest('button[data-action]');
-  if(!btn) return;
-  const id = btn.dataset.id;
-  const action = btn.dataset.action;
-  const income = currentMonthData().incomes.find(x=>x.id===id);
-  if(!income) return;
-
-  if(action === 'edit-income'){
-    openIncomeModal(income);
-  } else if(action === 'remove-income'){
-    confirmAction('🗑️ Eliminar ingreso', `¿Eliminar "${income.concepto}"? Esta acción no se puede deshacer.`, ()=>{
-      currentMonthData().incomes = currentMonthData().incomes.filter(x=>x.id!==id);
-      saveData(); renderIncomes(); renderSummary();
-      showToast('🗑️ Ingreso eliminado');
-    });
-  }
-});
-
-function openIncomeModal(income){
-  editingIncomeId = income ? income.id : null;
-  pendingIncomeFile = income && income.fileDataUrl ? { name: income.fileName, type: income.fileType, dataUrl: income.fileDataUrl } : null;
-  document.getElementById('incomeModalTitle').textContent = income ? '✏️ Editar ingreso' : '💵 Nuevo ingreso';
-  document.getElementById('fIncomeConcepto').value = income ? income.concepto : 'Sueldo';
-  document.getElementById('fIncomeMonto').value = income ? income.monto : '';
-  document.getElementById('fIncomeFecha').value = income ? (income.fecha||'') : new Date().toISOString().slice(0,10);
-  document.getElementById('fIncomeArchivo').value = '';
-  document.getElementById('incomeArchivoActual').textContent = income && income.fileName ? `Archivo actual: ${income.fileName}` : '';
-  openModal('incomeOverlay');
-  document.getElementById('fIncomeConcepto').focus();
-}
-document.getElementById('btnAddIncome').addEventListener('click', ()=> openIncomeModal(null));
-document.getElementById('closeIncomeModal').addEventListener('click', ()=>closeModal('incomeOverlay'));
-document.getElementById('cancelIncome').addEventListener('click', ()=>closeModal('incomeOverlay'));
-
-document.getElementById('fIncomeArchivo').addEventListener('change', (e)=>{
-  const file = e.target.files[0];
-  if(!file) return;
-  if(file.size > 8*1024*1024){ showToast('⚠️ El archivo es demasiado grande (máx. 8MB)'); e.target.value=''; return; }
-  const reader = new FileReader();
-  reader.onload = ()=>{
-    pendingIncomeFile = { name:file.name, type:file.type, dataUrl:reader.result };
-    document.getElementById('incomeArchivoActual').textContent = `Archivo cargado: ${file.name}`;
-  };
-  reader.readAsDataURL(file);
-});
-
-document.getElementById('saveIncome').addEventListener('click', ()=>{
-  const concepto = document.getElementById('fIncomeConcepto').value.trim() || 'Sueldo';
-  const monto = parseFloat(document.getElementById('fIncomeMonto').value);
-  const fecha = document.getElementById('fIncomeFecha').value;
-
-  if(isNaN(monto) || monto <= 0){ showToast('⚠️ Escribí el monto a cobrar que figura en el recibo'); return; }
-
-  const fileData = pendingIncomeFile
-    ? { fileName: pendingIncomeFile.name, fileType: pendingIncomeFile.type, fileDataUrl: pendingIncomeFile.dataUrl }
-    : { fileName:null, fileType:null, fileDataUrl:null };
-
-  if(editingIncomeId){
-    const income = currentMonthData().incomes.find(x=>x.id===editingIncomeId);
-    Object.assign(income, { concepto, monto, fecha, ...fileData });
-    showToast('✅ Ingreso actualizado');
-  } else {
-    currentMonthData().incomes.push({ id:uid(), concepto, monto, fecha, ...fileData });
-    showToast(`✅ Se sumaron ${formatMoney(monto)} a tu sueldo del mes`);
-  }
-  saveData();
-  renderIncomes();
-  renderSummary();
-  closeModal('incomeOverlay');
-});
-
 /* ---------------- Tarjetas de crédito (con estado de pago) ---------------- */
 let editingCardId = null;
 let pendingCardFile = null; // { name, type, dataUrl } cargado en el modal antes de guardar
-let pendingCardItems = []; // detalle manual de gastos que componen el resumen
 
 function renderCards(){
   const grid = document.getElementById('cardGrid');
@@ -1460,7 +1153,6 @@ function renderCards(){
       <div class="attach-name" title="${escapeHtml(c.nombre)}">💳 ${escapeHtml(c.nombre || 'Sin nombre')}</div>
       <div style="font-family:var(--font-mono);font-size:13px;font-weight:600;">${formatMoney(c.monto)}</div>
       ${c.vencimiento ? `<div style="font-size:11px;color:var(--ink-faint);">📅 Vence ${formatDate(c.vencimiento)}</div>` : ''}
-      ${c.items && c.items.length ? `<div style="font-size:11px;color:var(--ink-faint);">📝 ${c.items.length} ítem(s) detallado(s)</div>` : ''}
       <button class="status-toggle ${c.estado==='pagado'?'paid':'pending'}" data-action="toggle-card-status" data-id="${c.id}" style="align-self:flex-start;">
         ${c.estado==='pagado' ? '✅ Pagada' : '⏳ No pagada'}
       </button>
@@ -1498,59 +1190,16 @@ document.getElementById('cardGrid').addEventListener('click', (e)=>{
 function openCardModal(card){
   editingCardId = card ? card.id : null;
   pendingCardFile = card && card.fileDataUrl ? { name: card.fileName, type: card.fileType, dataUrl: card.fileDataUrl } : null;
-  pendingCardItems = card && card.items ? card.items.map(it => ({...it})) : [];
   document.getElementById('cardModalTitle').textContent = card ? '✏️ Editar tarjeta' : '💳 Nueva tarjeta';
   document.getElementById('fCardNombre').value = card ? card.nombre : '';
   document.getElementById('fCardMonto').value = card ? card.monto : '';
   document.getElementById('fCardVenc').value = card ? (card.vencimiento||'') : '';
   document.getElementById('fCardArchivo').value = '';
-  document.getElementById('fCardItemConcepto').value = '';
-  document.getElementById('fCardItemMonto').value = '';
   document.getElementById('cardArchivoActual').textContent = card && card.fileName ? `Archivo actual: ${card.fileName}` : '';
-  renderCardItemList();
   setCardEstadoPills(card ? card.estado : 'no-pagado'); // toda tarjeta nueva nace "no pagada"
   openModal('cardOverlay');
   document.getElementById('fCardNombre').focus();
 }
-function renderCardItemList(){
-  const list = document.getElementById('cardItemList');
-  const totalEl = document.getElementById('cardItemTotal');
-  const montoInput = document.getElementById('fCardMonto');
-  if(pendingCardItems.length === 0){
-    list.innerHTML = '';
-    totalEl.textContent = '';
-    montoInput.disabled = false;
-    montoInput.placeholder = '0.00';
-    return;
-  }
-  list.innerHTML = pendingCardItems.map(it => `
-    <div class="item-row" data-id="${it.id}">
-      <span class="item-concepto">${escapeHtml(it.concepto)}</span>
-      <span class="item-monto">${formatMoney(it.monto)}</span>
-      <button type="button" data-action="remove-card-item" data-id="${it.id}" title="Quitar">✕</button>
-    </div>`).join('');
-  const total = pendingCardItems.reduce((s,it)=>s+Number(it.monto||0),0);
-  totalEl.textContent = `Total del detalle: ${formatMoney(total)}`;
-  montoInput.value = total.toFixed(2);
-  montoInput.disabled = true;
-  montoInput.placeholder = '';
-}
-document.getElementById('btnAddCardItem').addEventListener('click', ()=>{
-  const concepto = document.getElementById('fCardItemConcepto').value.trim();
-  const monto = parseFloat(document.getElementById('fCardItemMonto').value);
-  if(!concepto || isNaN(monto)){ showToast('⚠️ Completá concepto y monto del ítem'); return; }
-  pendingCardItems.push({ id: uid(), concepto, monto });
-  document.getElementById('fCardItemConcepto').value = '';
-  document.getElementById('fCardItemMonto').value = '';
-  renderCardItemList();
-  document.getElementById('fCardItemConcepto').focus();
-});
-document.getElementById('cardItemList').addEventListener('click', (e)=>{
-  const btn = e.target.closest('button[data-action="remove-card-item"]');
-  if(!btn) return;
-  pendingCardItems = pendingCardItems.filter(it => it.id !== btn.dataset.id);
-  renderCardItemList();
-});
 function setCardEstadoPills(estado){
   const pPagado = document.getElementById('cardPillPagado');
   const pNo = document.getElementById('cardPillNoPagado');
@@ -1582,9 +1231,7 @@ document.getElementById('fCardArchivo').addEventListener('change', (e)=>{
 
 document.getElementById('saveCard').addEventListener('click', ()=>{
   const nombre = document.getElementById('fCardNombre').value.trim();
-  const monto = pendingCardItems.length > 0
-    ? pendingCardItems.reduce((s,it)=>s+Number(it.monto||0),0)
-    : (parseFloat(document.getElementById('fCardMonto').value) || 0);
+  const monto = parseFloat(document.getElementById('fCardMonto').value) || 0;
   const vencimiento = document.getElementById('fCardVenc').value;
   const estado = document.querySelector('#fCardEstadoGroup input:checked').value;
 
@@ -1593,14 +1240,13 @@ document.getElementById('saveCard').addEventListener('click', ()=>{
   const fileData = pendingCardFile
     ? { fileName: pendingCardFile.name, fileType: pendingCardFile.type, fileDataUrl: pendingCardFile.dataUrl }
     : { fileName:null, fileType:null, fileDataUrl:null };
-  const items = pendingCardItems.map(it => ({...it}));
 
   if(editingCardId){
     const card = currentMonthData().cards.find(x=>x.id===editingCardId);
-    Object.assign(card, { nombre, monto, vencimiento, estado, items, ...fileData });
+    Object.assign(card, { nombre, monto, vencimiento, estado, ...fileData });
     showToast('✅ Tarjeta actualizada');
   } else {
-    currentMonthData().cards.push({ id:uid(), nombre, monto, vencimiento, estado, items, ...fileData });
+    currentMonthData().cards.push({ id:uid(), nombre, monto, vencimiento, estado, ...fileData });
     showToast('✅ Tarjeta agregada');
   }
   saveData();
@@ -1634,12 +1280,7 @@ function renderFolders(){
       <span class="folder-del" data-action="delete-folder" data-id="${f.id}" title="Eliminar">✕</span>
     </div>`;
   }).join('');
-  const unassignChip = `
-    <div class="folder-chip unassign" data-unassign="true" title="Soltá acá un gasto para quitarle la carpeta">
-      <span>— Sin carpeta</span>
-    </div>`;
-  panel.innerHTML = chips + unassignChip
-    + `<div class="folder-hint">💡 Arrastrá un gasto de la tabla hasta una carpeta para asignarlo.</div>`;
+  panel.innerHTML = chips;
 }
 
 document.getElementById('btnAddFolder').addEventListener('click', ()=>{
@@ -1650,35 +1291,6 @@ document.getElementById('btnAddFolder').addEventListener('click', ()=>{
     renderFolders(); renderFolderFilter(); renderFolderSelectField('');
     showToast('📁 Carpeta creada');
   }
-});
-
-document.getElementById('folderPanel').addEventListener('dragover', (e)=>{
-  const chip = e.target.closest('.folder-chip');
-  if(!chip) return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = 'move';
-  chip.classList.add('drag-over');
-});
-document.getElementById('folderPanel').addEventListener('dragleave', (e)=>{
-  const chip = e.target.closest('.folder-chip');
-  if(!chip) return;
-  chip.classList.remove('drag-over');
-});
-document.getElementById('folderPanel').addEventListener('drop', (e)=>{
-  const chip = e.target.closest('.folder-chip');
-  if(!chip) return;
-  e.preventDefault();
-  chip.classList.remove('drag-over');
-  const expId = e.dataTransfer.getData('text/plain');
-  if(!expId) return;
-  const exp = currentMonthData().expenses.find(x => x.id === expId);
-  if(!exp) return;
-  const targetId = chip.dataset.unassign ? null : chip.dataset.id;
-  exp.carpetaId = targetId;
-  saveData();
-  renderExpenseTable();
-  renderFolders();
-  showToast(targetId ? `📁 Movido a "${getFolder(targetId).name}"` : '📁 Se quitó la carpeta del gasto');
 });
 
 document.getElementById('folderPanel').addEventListener('click', (e)=>{
@@ -1807,310 +1419,6 @@ document.getElementById('btnExportPdf').addEventListener('click', async ()=>{
   doc.save(`Gastos_${state.currentMonth}.pdf`);
 });
 
-/* ---------------- Google Drive ---------------- */
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-const DRIVE_FILE_NAME = 'libro_gastos_backup.json';
-let driveClientId = localStorage.getItem('libro_drive_client_id') || '';
-let driveAccessToken = null;
-let driveTokenClient = null;
-let driveFileId = localStorage.getItem('libro_drive_file_id') || null;
-
-document.getElementById('btnDriveMenu').addEventListener('click', openDriveModal);
-document.getElementById('closeDriveModal').addEventListener('click', ()=>closeModal('driveOverlay'));
-
-function openDriveModal(){
-  const setupBlock = document.getElementById('driveSetupBlock');
-  const connectBlock = document.getElementById('driveConnectBlock');
-  if(!driveClientId){
-    setupBlock.classList.remove('hidden');
-    connectBlock.classList.add('hidden');
-  } else {
-    setupBlock.classList.add('hidden');
-    connectBlock.classList.remove('hidden');
-    updateDriveStatusUI();
-  }
-  openModal('driveOverlay');
-}
-
-document.getElementById('btnSaveDriveClientId').addEventListener('click', ()=>{
-  const val = document.getElementById('fDriveClientId').value.trim();
-  if(!val){ showToast('⚠️ Pegá tu Client ID de Google'); return; }
-  driveClientId = val;
-  localStorage.setItem('libro_drive_client_id', val);
-  showToast('✅ Client ID guardado');
-  document.getElementById('driveSetupBlock').classList.add('hidden');
-  document.getElementById('driveConnectBlock').classList.remove('hidden');
-  updateDriveStatusUI();
-});
-document.getElementById('btnDriveEditClientId').addEventListener('click', ()=>{
-  document.getElementById('fDriveClientId').value = driveClientId;
-  document.getElementById('driveSetupBlock').classList.remove('hidden');
-  document.getElementById('driveConnectBlock').classList.add('hidden');
-});
-
-function updateDriveStatusUI(){
-  const statusLabel = document.getElementById('driveStatusLabel');
-  const actionsBlock = document.getElementById('driveActionsBlock');
-  const connectBtn = document.getElementById('btnDriveConnect');
-  if(driveAccessToken){
-    statusLabel.textContent = '☁️ Conectado a Google Drive';
-    actionsBlock.classList.remove('hidden');
-    connectBtn.classList.add('hidden');
-  } else {
-    statusLabel.textContent = '☁️ No conectado';
-    actionsBlock.classList.add('hidden');
-    connectBtn.classList.remove('hidden');
-  }
-  const lastSync = localStorage.getItem('libro_drive_last_sync');
-  document.getElementById('driveLastSync').textContent = lastSync ? `Último guardado: ${lastSync}` : '';
-}
-
-document.getElementById('btnDriveConnect').addEventListener('click', ()=>{
-  if(location.protocol === 'file:'){
-    showToast('⚠️ Abrí esta app desde una URL http/https para poder conectar Drive');
-    return;
-  }
-  if(!window.google || !google.accounts || !google.accounts.oauth2){
-    showToast('⚠️ No se pudo cargar Google. Revisá tu conexión a internet.');
-    return;
-  }
-  driveTokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: driveClientId,
-    scope: DRIVE_SCOPE,
-    callback: (resp)=>{
-      if(resp.error){ showToast('⚠️ No se pudo conectar con Google Drive'); return; }
-      driveAccessToken = resp.access_token;
-      updateDriveStatusUI();
-      showToast('✅ Conectado a Google Drive');
-    }
-  });
-  driveTokenClient.requestAccessToken();
-});
-
-document.getElementById('btnDriveDisconnect').addEventListener('click', ()=>{
-  if(driveAccessToken && window.google) google.accounts.oauth2.revoke(driveAccessToken, ()=>{});
-  driveAccessToken = null;
-  updateDriveStatusUI();
-  showToast('☁️ Desconectado de Google Drive');
-});
-
-async function driveFindFile(){
-  const q = encodeURIComponent(`name='${DRIVE_FILE_NAME}' and trashed=false`);
-  const res = await fetch(`https://www.googleapis.com/drive/v3/files?q=${q}&spaces=drive&fields=files(id,name,modifiedTime)`, {
-    headers: { Authorization: `Bearer ${driveAccessToken}` }
-  });
-  if(!res.ok) throw new Error('Drive error ' + res.status);
-  const data = await res.json();
-  return (data.files && data.files.length) ? data.files[0] : null;
-}
-
-document.getElementById('btnDriveSave').addEventListener('click', async ()=>{
-  if(!driveAccessToken){ showToast('⚠️ Conectate primero con Google Drive'); return; }
-  showToast('☁️ Guardando en Drive...');
-  try{
-    if(!driveFileId){
-      const existing = await driveFindFile();
-      if(existing) driveFileId = existing.id;
-    }
-    const content = JSON.stringify(state, null, 2);
-    const metadata = { name: DRIVE_FILE_NAME, mimeType: 'application/json' };
-    const boundary = 'libro_boundary_' + uid();
-    const body =
-      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
-      `--${boundary}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${boundary}--`;
-    const url = driveFileId
-      ? `https://www.googleapis.com/upload/drive/v3/files/${driveFileId}?uploadType=multipart`
-      : `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart`;
-    const res = await fetch(url, {
-      method: driveFileId ? 'PATCH' : 'POST',
-      headers: {
-        Authorization: `Bearer ${driveAccessToken}`,
-        'Content-Type': `multipart/related; boundary=${boundary}`
-      },
-      body
-    });
-    if(!res.ok) throw new Error('Drive error ' + res.status);
-    const data = await res.json();
-    driveFileId = data.id;
-    localStorage.setItem('libro_drive_file_id', driveFileId);
-    const now = new Date().toLocaleString('es-AR');
-    localStorage.setItem('libro_drive_last_sync', now);
-    updateDriveStatusUI();
-    showToast('✅ Datos guardados en tu Google Drive');
-  }catch(err){
-    console.error(err);
-    showToast('⚠️ No se pudo guardar en Drive. Probá conectar de nuevo.');
-  }
-});
-
-document.getElementById('btnDriveLoad').addEventListener('click', async ()=>{
-  if(!driveAccessToken){ showToast('⚠️ Conectate primero con Google Drive'); return; }
-  showToast('☁️ Buscando datos en Drive...');
-  try{
-    let fileId = driveFileId;
-    if(!fileId){
-      const existing = await driveFindFile();
-      if(!existing){ showToast('⚠️ No encontré un respaldo guardado en tu Drive todavía'); return; }
-      fileId = existing.id;
-    }
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-      headers: { Authorization: `Bearer ${driveAccessToken}` }
-    });
-    if(!res.ok) throw new Error('Drive error ' + res.status);
-    const parsed = await res.json();
-    if(!parsed.months) throw new Error('Formato inválido');
-    confirmAction('📥 Cargar desde Drive', 'Esto reemplazará todos los datos de este dispositivo por los guardados en tu Google Drive. ¿Continuar?', ()=>{
-      state = parsed;
-      if(!state.folders) state.folders = [];
-      driveFileId = fileId;
-      localStorage.setItem('libro_drive_file_id', fileId);
-      saveData();
-      applyTheme();
-      renderAll();
-      closeModal('driveOverlay');
-      showToast('✅ Datos cargados desde Google Drive');
-    });
-  }catch(err){
-    console.error(err);
-    showToast('⚠️ No se pudo cargar desde Drive');
-  }
-});
-
-/* ---------------- Asistente IA (Gemini) ---------------- */
-const GEMINI_MODEL = 'gemini-2.5-flash';
-let geminiApiKey = localStorage.getItem('libro_gemini_api_key') || '';
-
-function updateAiModalUI(){
-  const setupBlock = document.getElementById('aiSetupBlock');
-  const chatBlock = document.getElementById('aiChatBlock');
-  if(geminiApiKey){
-    setupBlock.classList.add('hidden');
-    chatBlock.classList.remove('hidden');
-  } else {
-    setupBlock.classList.remove('hidden');
-    chatBlock.classList.add('hidden');
-  }
-}
-
-document.getElementById('btnAiMenu').addEventListener('click', ()=>{
-  document.getElementById('aiResponseBlock').classList.add('hidden');
-  updateAiModalUI();
-  openModal('aiOverlay');
-});
-document.getElementById('closeAiModal').addEventListener('click', ()=>closeModal('aiOverlay'));
-
-document.getElementById('btnSaveAiApiKey').addEventListener('click', ()=>{
-  const val = document.getElementById('fAiApiKey').value.trim();
-  if(!val){ showToast('⚠️ Pegá tu API Key de Gemini'); return; }
-  geminiApiKey = val;
-  localStorage.setItem('libro_gemini_api_key', geminiApiKey);
-  showToast('✅ API Key guardada');
-  updateAiModalUI();
-});
-document.getElementById('btnAiEditApiKey').addEventListener('click', ()=>{
-  document.getElementById('fAiApiKey').value = geminiApiKey;
-  document.getElementById('aiSetupBlock').classList.remove('hidden');
-  document.getElementById('aiChatBlock').classList.add('hidden');
-});
-
-/* Arma un resumen en texto plano de un mes, para pasarle contexto a Gemini */
-function buildMonthContext(key){
-  const m = getMonthData(key);
-  const total = m.expenses.reduce((s,e)=>s+Number(e.monto||0),0);
-  const pagado = m.expenses.filter(e=>e.estado==='pagado').reduce((s,e)=>s+Number(e.monto||0),0);
-  const ingresos = m.incomes.reduce((s,i)=>s+Number(i.monto||0),0);
-  const porCategoria = {};
-  m.expenses.forEach(e=>{
-    const cat = catInfo(e.categoria).label;
-    porCategoria[cat] = (porCategoria[cat]||0) + Number(e.monto||0);
-  });
-  const catLines = Object.entries(porCategoria)
-    .sort((a,b)=>b[1]-a[1])
-    .map(([cat,monto])=>`  - ${cat}: ${formatMoney(monto)}`).join('\n') || '  (sin gastos cargados)';
-  return `${monthLabel(key)}:\n`+
-    `- Ingresos: ${formatMoney(ingresos)}\n`+
-    `- Total gastado: ${formatMoney(total)} (pagado: ${formatMoney(pagado)}, pendiente: ${formatMoney(total-pagado)})\n`+
-    `- Balance: ${formatMoney(ingresos-total)}\n`+
-    `- Gastos por categoría:\n${catLines}`;
-}
-
-function buildGoalContext(){
-  const g = state.savingsGoal;
-  if(!g) return 'No tiene un objetivo de ahorro configurado.';
-  return `Objetivo de ahorro: "${g.name}" — meta ${formatMoney(g.target)}, ahorrado hasta ahora ${formatMoney(g.saved)}.`;
-}
-
-async function callGemini(prompt){
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': geminiApiKey
-    },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }]
-    })
-  });
-  if(!res.ok){
-    const errBody = await res.text().catch(()=> '');
-    throw new Error(`Gemini error ${res.status}: ${errBody}`);
-  }
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.map(p=>p.text).join('') || '';
-  if(!text) throw new Error('Respuesta vacía de Gemini');
-  return text;
-}
-
-function showAiResponse(text){
-  document.getElementById('aiResponseText').textContent = text;
-  document.getElementById('aiResponseBlock').classList.remove('hidden');
-}
-
-async function runAiPrompt(prompt){
-  if(!geminiApiKey){ showToast('⚠️ Guardá tu API Key de Gemini primero'); return; }
-  document.getElementById('aiLoading').classList.remove('hidden');
-  document.getElementById('aiResponseBlock').classList.add('hidden');
-  try{
-    const text = await callGemini(prompt);
-    showAiResponse(text);
-  }catch(err){
-    console.error(err);
-    showToast('⚠️ No se pudo consultar al asistente. Revisá tu API Key.');
-  }finally{
-    document.getElementById('aiLoading').classList.add('hidden');
-  }
-}
-
-document.getElementById('btnAiAnalyzeMonth').addEventListener('click', ()=>{
-  const prompt =
-    `Sos un asistente financiero personal que habla en español rioplatense, cercano y directo, sin tecnicismos innecesarios.\n\n`+
-    `Estos son los datos del mes actual del usuario:\n\n${buildMonthContext(state.currentMonth)}\n\n${buildGoalContext()}\n\n`+
-    `Dame un análisis breve (máximo 6-8 líneas): en qué se le va más la plata, si el balance del mes es sano, y 2-3 sugerencias concretas y accionables. No repitas los números tal cual, interpretalos.`;
-  runAiPrompt(prompt);
-});
-
-document.getElementById('btnAiAnalyzeTrend').addEventListener('click', ()=>{
-  const keys = allMonthKeysSorted().slice(-4); // hasta los últimos 4 meses cargados
-  const contexts = keys.map(k=>buildMonthContext(k)).join('\n\n');
-  const prompt =
-    `Sos un asistente financiero personal que habla en español rioplatense, cercano y directo.\n\n`+
-    `Estos son los datos de los últimos meses del usuario:\n\n${contexts}\n\n${buildGoalContext()}\n\n`+
-    `Compará la evolución mes a mes (máximo 8-10 líneas): identificá tendencias (¿gasta cada vez más o menos?, ¿en qué categoría?), si el balance mejora o empeora, y si va bien encaminado hacia su objetivo de ahorro. Sé concreto, no repitas todos los números.`;
-  runAiPrompt(prompt);
-});
-
-document.getElementById('btnAiAsk').addEventListener('click', ()=>{
-  const question = document.getElementById('fAiQuestion').value.trim();
-  if(!question){ showToast('⚠️ Escribí una pregunta'); return; }
-  const prompt =
-    `Sos un asistente financiero personal que habla en español rioplatense, cercano y directo.\n\n`+
-    `Datos del mes actual del usuario:\n\n${buildMonthContext(state.currentMonth)}\n\n${buildGoalContext()}\n\n`+
-    `Pregunta del usuario: "${question}"\n\n`+
-    `Respondé de forma breve y concreta, basándote en los datos de arriba cuando aplique.`;
-  runAiPrompt(prompt);
-});
-
 /* ---------------- Copia de seguridad JSON ---------------- */
 document.getElementById('btnBackupExport').addEventListener('click', ()=>{
   const blob = new Blob([JSON.stringify(state, null, 2)], { type:'application/json' });
@@ -2156,7 +1464,6 @@ function renderAll(){
   renderFolderFilter();
   renderSummary();
   renderGoal();
-  renderIncomes();
   renderFolders();
   renderExpenseTable();
   renderCards();
