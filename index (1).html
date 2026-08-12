@@ -12,6 +12,11 @@
 <!-- Google Identity Services, para conectar con Google Drive -->
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 
+<!-- Firebase, para el sistema de cuentas de usuario y guardado en la nube -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
 <!-- Librerías para exportación (PDF / PNG) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -348,6 +353,28 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
   padding:10px 12px;border-radius:var(--radius-sm);margin-top:10px;line-height:1.5;
 }
 
+/* ---------- Cuenta / Autenticación (Firebase) ---------- */
+.auth-gate{
+  position:fixed;inset:0;z-index:200;background:var(--bg);display:flex;align-items:center;justify-content:center;
+  padding:24px;overflow-y:auto;
+}
+.auth-gate.hidden{display:none;}
+.auth-card{
+  width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:18px;
+  box-shadow:var(--shadow-lg);padding:32px 28px;margin:auto;
+}
+.auth-tabs{display:flex;gap:6px;background:var(--bg-soft);padding:4px;border-radius:10px;margin-bottom:20px;}
+.auth-tab{flex:1;text-align:center;padding:9px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;color:var(--ink-soft);}
+.auth-tab.active{background:var(--surface);color:var(--brand);box-shadow:var(--shadow);}
+.auth-error{background:var(--danger-soft);color:var(--danger);font-size:12.5px;padding:9px 12px;border-radius:8px;margin-top:12px;display:none;}
+.auth-error.show{display:block;}
+.auth-guest{text-align:center;margin-top:18px;font-size:12.5px;color:var(--ink-faint);}
+.auth-guest a{color:var(--brand);font-weight:600;cursor:pointer;text-decoration:underline;}
+.auth-rules-box{
+  background:var(--surface);border-radius:7px;padding:10px;margin-top:8px;font-family:var(--font-mono);
+  font-size:10.5px;overflow-x:auto;white-space:pre;line-height:1.5;border:1px solid var(--line);
+}
+
 /* ---------- Footer / acciones globales ---------- */
 .footer-actions{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:36px;}
 
@@ -395,6 +422,7 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
       </div>
       <div class="header-actions">
         <button class="btn btn-icon" id="themeToggle" title="Cambiar tema" aria-label="Cambiar tema"></button>
+        <button class="btn" id="btnAccountMenu" title="Tu cuenta">👤 Invitado</button>
         <button class="btn" id="btnDriveMenu" title="Sincronizar con Google Drive">☁️ Drive</button>
         <button class="btn" id="btnBackupExport" title="Exportar todos los datos (JSON)">💾 Respaldo</button>
         <button class="btn" id="btnBackupImport" title="Importar respaldo (JSON)">📥 Restaurar</button>
@@ -698,6 +726,72 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
 
 <div class="toast" id="toast"></div>
 
+<!-- Pantalla de cuenta: configuración de Firebase + login/registro -->
+<div class="auth-gate hidden" id="authGate">
+  <div class="auth-card">
+    <div class="brand" style="justify-content:center;margin-bottom:20px;">
+      <div class="brand-mark">💰</div>
+      <div><h1 style="font-size:20px;">Libro</h1></div>
+    </div>
+
+    <div id="authSetupBlock">
+      <div class="drive-steps">
+        Para tener tu cuenta y ver tus datos desde cualquier dispositivo, configurá Firebase (es gratis, se hace una sola vez):<br><br>
+        1. Entrá a <strong>console.firebase.google.com</strong> y creá un proyecto.<br>
+        2. En <strong>Authentication → Sign-in method</strong> activá el proveedor <strong>Email/contraseña</strong>.<br>
+        3. En <strong>Firestore Database</strong> creá una base de datos (modo producción).<br>
+        4. En la pestaña <strong>Reglas</strong> de Firestore, reemplazá el contenido por esto y publicá:
+        <div class="auth-rules-box">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}</div>
+        5. En <strong>Configuración del proyecto → Tus apps</strong>, agregá una app Web (ícono &lt;/&gt;) y copiá el objeto de configuración que te da Google. Pegalo acá abajo completo.
+      </div>
+      <div class="field" style="margin-top:12px;">
+        <label>Configuración de Firebase</label>
+        <textarea id="fFirebaseConfig" style="min-height:110px;font-family:var(--font-mono);font-size:11.5px;" placeholder='{
+  "apiKey": "...",
+  "authDomain": "...",
+  "projectId": "...",
+  "storageBucket": "...",
+  "messagingSenderId": "...",
+  "appId": "..."
+}'></textarea>
+      </div>
+      <button class="btn btn-primary" id="btnSaveFirebaseConfig" style="width:100%;margin-top:10px;">💾 Guardar configuración</button>
+      <div class="auth-guest"><a id="btnUseGuestFromSetup">Prefiero seguir usando la app solo en este dispositivo, sin cuenta</a></div>
+    </div>
+
+    <div id="authFormsBlock" class="hidden">
+      <div class="auth-tabs">
+        <div class="auth-tab active" id="tabLogin" data-tab="login">Iniciar sesión</div>
+        <div class="auth-tab" id="tabRegister" data-tab="register">Crear cuenta</div>
+      </div>
+
+      <div id="loginPane">
+        <div class="field"><label>Email</label><input class="input" type="email" id="fLoginEmail" autocomplete="username"></div>
+        <div class="field" style="margin-top:10px;"><label>Contraseña</label><input class="input" type="password" id="fLoginPass" autocomplete="current-password"></div>
+        <button class="btn btn-primary" id="btnDoLogin" style="width:100%;margin-top:14px;">🔓 Iniciar sesión</button>
+      </div>
+
+      <div id="registerPane" class="hidden">
+        <div class="field"><label>Nombre</label><input class="input" type="text" id="fRegNombre"></div>
+        <div class="field" style="margin-top:10px;"><label>Email</label><input class="input" type="email" id="fRegEmail" autocomplete="username"></div>
+        <div class="field" style="margin-top:10px;"><label>Contraseña (mínimo 6 caracteres)</label><input class="input" type="password" id="fRegPass" autocomplete="new-password"></div>
+        <button class="btn btn-primary" id="btnDoRegister" style="width:100%;margin-top:14px;">✅ Crear cuenta</button>
+      </div>
+
+      <div class="auth-error" id="authErrorMsg"></div>
+      <div class="auth-guest">o <a id="btnUseGuest">seguir sin cuenta, solo en este dispositivo</a></div>
+      <button class="btn btn-sm" id="btnEditFirebaseConfig" style="width:100%;margin-top:14px;">Cambiar configuración de Firebase</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ============================================================
    LIBRO — Sistema de gastos personales
@@ -750,6 +844,7 @@ function loadData(){
 }
 function saveData(){
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  saveStateToFirestoreDebounced(); // no hace nada si no hay sesión iniciada
 }
 
 let state = loadData();
@@ -1977,6 +2072,219 @@ function renderAll(){
 
 applyTheme();
 renderAll();
+
+/* ---------------- Cuenta de usuario (Firebase Auth + Firestore) ----------------
+   Modo invitado: todo sigue funcionando igual que antes, 100% local (localStorage).
+   Modo con cuenta: los datos viven en Firestore, separados por usuario (users/{uid}),
+   y localStorage funciona como caché rápida además. Nada de esto rompe el modo local. */
+const FIREBASE_CONFIG_KEY = 'libro_firebase_config';
+let firebaseConfig = null;
+try{ firebaseConfig = JSON.parse(localStorage.getItem(FIREBASE_CONFIG_KEY) || 'null'); }catch(e){ firebaseConfig = null; }
+let firebaseApp = null, firebaseAuth = null, firebaseDb = null;
+let currentUser = null; // usuario de Firebase Auth, null = sin sesión
+let guestMode = localStorage.getItem('libro_guest_mode') === '1';
+let saveDebounceTimer = null;
+
+function initFirebaseIfNeeded(){
+  if(firebaseApp || !firebaseConfig) return;
+  try{
+    firebaseApp = firebase.initializeApp(firebaseConfig);
+    firebaseAuth = firebase.auth();
+    firebaseDb = firebase.firestore();
+    firebaseAuth.onAuthStateChanged(handleAuthStateChanged);
+  }catch(e){
+    console.error('Error iniciando Firebase', e);
+    showAuthError('No se pudo iniciar Firebase. Revisá que hayas pegado bien la configuración.');
+  }
+}
+
+function showAuthGate(){
+  document.getElementById('authGate').classList.remove('hidden');
+  const configured = !!firebaseConfig;
+  document.getElementById('authSetupBlock').classList.toggle('hidden', configured);
+  document.getElementById('authFormsBlock').classList.toggle('hidden', !configured);
+}
+function hideAuthGate(){
+  document.getElementById('authGate').classList.add('hidden');
+}
+
+document.getElementById('btnSaveFirebaseConfig').addEventListener('click', ()=>{
+  const raw = document.getElementById('fFirebaseConfig').value.trim();
+  try{
+    const parsed = JSON.parse(raw);
+    if(!parsed.apiKey || !parsed.projectId) throw new Error('faltan campos obligatorios');
+    firebaseConfig = parsed;
+    localStorage.setItem(FIREBASE_CONFIG_KEY, JSON.stringify(parsed));
+    showToast('✅ Configuración de Firebase guardada');
+    initFirebaseIfNeeded();
+    document.getElementById('authSetupBlock').classList.add('hidden');
+    document.getElementById('authFormsBlock').classList.remove('hidden');
+  }catch(e){
+    showToast('⚠️ Eso no es un objeto de configuración válido. Copiá el bloque completo que te da Firebase.');
+  }
+});
+document.getElementById('btnEditFirebaseConfig').addEventListener('click', ()=>{
+  document.getElementById('fFirebaseConfig').value = firebaseConfig ? JSON.stringify(firebaseConfig, null, 2) : '';
+  document.getElementById('authFormsBlock').classList.add('hidden');
+  document.getElementById('authSetupBlock').classList.remove('hidden');
+});
+document.getElementById('btnUseGuestFromSetup').addEventListener('click', ()=>{
+  guestMode = true;
+  localStorage.setItem('libro_guest_mode','1');
+  hideAuthGate();
+  updateAccountBadge();
+});
+document.getElementById('btnUseGuest').addEventListener('click', ()=>{
+  guestMode = true;
+  localStorage.setItem('libro_guest_mode','1');
+  hideAuthGate();
+  updateAccountBadge();
+});
+
+document.querySelectorAll('.auth-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.auth-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    const isLogin = tab.dataset.tab === 'login';
+    document.getElementById('loginPane').classList.toggle('hidden', !isLogin);
+    document.getElementById('registerPane').classList.toggle('hidden', isLogin);
+    hideAuthError();
+  });
+});
+
+function showAuthError(msg){
+  const el = document.getElementById('authErrorMsg');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+function hideAuthError(){
+  document.getElementById('authErrorMsg').classList.remove('show');
+}
+const AUTH_ERROR_MESSAGES = {
+  'auth/email-already-in-use': 'Ese email ya tiene una cuenta creada. Probá iniciar sesión.',
+  'auth/invalid-email': 'El email no es válido.',
+  'auth/weak-password': 'La contraseña necesita al menos 6 caracteres.',
+  'auth/user-not-found': 'No existe una cuenta con ese email.',
+  'auth/wrong-password': 'La contraseña es incorrecta.',
+  'auth/invalid-credential': 'Email o contraseña incorrectos.',
+  'auth/missing-password': 'Escribí una contraseña.',
+  'auth/too-many-requests': 'Demasiados intentos. Probá de nuevo en un rato.',
+  'auth/network-request-failed': 'Hubo un problema de conexión. Probá de nuevo.'
+};
+function friendlyAuthError(err){ return AUTH_ERROR_MESSAGES[err.code] || 'Ocurrió un error. Probá de nuevo.'; }
+
+document.getElementById('btnDoLogin').addEventListener('click', ()=>{
+  const email = document.getElementById('fLoginEmail').value.trim();
+  const pass = document.getElementById('fLoginPass').value;
+  hideAuthError();
+  if(!email || !pass){ showAuthError('Completá email y contraseña.'); return; }
+  initFirebaseIfNeeded();
+  firebaseAuth.signInWithEmailAndPassword(email, pass).catch(err => showAuthError(friendlyAuthError(err)));
+});
+
+document.getElementById('btnDoRegister').addEventListener('click', ()=>{
+  const nombre = document.getElementById('fRegNombre').value.trim();
+  const email = document.getElementById('fRegEmail').value.trim();
+  const pass = document.getElementById('fRegPass').value;
+  hideAuthError();
+  if(!nombre || !email || !pass){ showAuthError('Completá todos los campos.'); return; }
+  if(pass.length < 6){ showAuthError('La contraseña necesita al menos 6 caracteres.'); return; }
+  initFirebaseIfNeeded();
+  firebaseAuth.createUserWithEmailAndPassword(email, pass).then(cred => {
+    return cred.user.updateProfile({ displayName: nombre }).then(()=>{
+      const now = new Date();
+      const initialMonth = monthKey(now.getFullYear(), now.getMonth());
+      const initialState = {
+        theme: 'light',
+        currentMonth: initialMonth,
+        savingsGoal: null,
+        folders: [],
+        months: { [initialMonth]: { expenses: [], cards: [], incomes: [] } }
+      };
+      return firebaseDb.collection('users').doc(cred.user.uid).set({ payload: JSON.stringify(initialState) });
+    });
+  }).catch(err => showAuthError(friendlyAuthError(err)));
+});
+
+document.getElementById('btnAccountMenu').addEventListener('click', ()=>{
+  if(currentUser){
+    confirmAction('🔓 Cerrar sesión', `¿Cerrar la sesión de ${currentUser.email}? Vas a poder volver a entrar cuando quieras con tu email y contraseña, desde cualquier dispositivo.`, ()=>{
+      firebaseAuth.signOut();
+    });
+  } else {
+    guestMode = false;
+    initFirebaseIfNeeded();
+    showAuthGate();
+  }
+});
+
+async function handleAuthStateChanged(user){
+  if(user){
+    currentUser = user;
+    guestMode = false;
+    localStorage.removeItem('libro_guest_mode');
+    hideAuthGate();
+    await loadStateFromFirestore();
+    showToast(`✅ Sesión iniciada — hola, ${user.displayName || user.email}`);
+  } else {
+    currentUser = null;
+    state = loadData(); // volvemos a los datos locales de invitado
+    applyTheme();
+    renderAll();
+    if(!guestMode) showAuthGate(); else hideAuthGate();
+  }
+  updateAccountBadge();
+}
+
+async function loadStateFromFirestore(){
+  try{
+    const doc = await firebaseDb.collection('users').doc(currentUser.uid).get();
+    if(doc.exists && doc.data().payload){
+      state = JSON.parse(doc.data().payload);
+      if(!state.folders) state.folders = [];
+    } else {
+      const now = new Date();
+      const initialMonth = monthKey(now.getFullYear(), now.getMonth());
+      state = { theme:'light', currentMonth: initialMonth, savingsGoal:null, folders:[], months:{ [initialMonth]: { expenses:[], cards:[], incomes:[] } } };
+    }
+    applyTheme();
+    renderAll();
+  }catch(e){
+    console.error(e);
+    showToast('⚠️ No se pudieron cargar tus datos desde la nube');
+  }
+}
+
+function saveStateToFirestoreDebounced(){
+  if(!currentUser || !firebaseDb) return;
+  clearTimeout(saveDebounceTimer);
+  saveDebounceTimer = setTimeout(()=>{
+    firebaseDb.collection('users').doc(currentUser.uid).set({ payload: JSON.stringify(state) })
+      .catch(e => { console.error(e); showToast('⚠️ No se pudo sincronizar con la nube'); });
+  }, 600);
+}
+
+function updateAccountBadge(){
+  const btn = document.getElementById('btnAccountMenu');
+  if(currentUser){
+    btn.textContent = `👤 ${currentUser.displayName || currentUser.email}`;
+    btn.title = 'Tocá para cerrar sesión';
+  } else if(guestMode){
+    btn.textContent = '👤 Invitado (local)';
+    btn.title = 'Tocá para crear cuenta o iniciar sesión';
+  } else {
+    btn.textContent = '👤 Sin cuenta';
+    btn.title = 'Tocá para crear cuenta o iniciar sesión';
+  }
+}
+
+// Bootstrap de cuenta: si hay Firebase configurado, se inicializa y onAuthStateChanged decide qué mostrar.
+// Si no hay configuración y el usuario no eligió "modo invitado" antes, se muestra la pantalla de cuenta.
+initFirebaseIfNeeded();
+if(!firebaseConfig && !guestMode){
+  showAuthGate();
+}
+updateAccountBadge();
 </script>
 </body>
 </html>
