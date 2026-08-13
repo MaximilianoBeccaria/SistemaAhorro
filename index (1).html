@@ -450,6 +450,31 @@ textarea{font-family:inherit;font-size:13.5px;border:1px solid var(--line);borde
 
     <div class="section">
       <div class="section-head">
+        <div class="section-title">📈 Proyección y Rendimiento</div>
+      </div>
+      <div class="panel" style="padding:20px 22px;">
+        <div class="proj-grid" id="projectionStatsGrid"></div>
+
+        <div style="margin-top:24px;">
+          <div class="proj-subtitle">📊 Evolución mensual (gasto total)</div>
+          <div class="chart-bars" id="monthlyChartBars"></div>
+        </div>
+
+        <div style="margin-top:24px;">
+          <div class="proj-subtitle">🗓️ Gasto por semana — <span id="weeklyChartMonthLabel"></span></div>
+          <div id="weeklyChartRows"></div>
+        </div>
+
+        <div style="margin-top:24px;">
+          <div class="proj-subtitle">💵 Ahorro por mes (ingresos − gastos)</div>
+          <div id="savingsHistoryRows"></div>
+          <div class="proj-total-savings" id="savingsHistoryTotal"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head">
         <div class="section-title">🎯 Objetivo de ahorro</div>
         <button class="btn btn-sm" id="btnEditGoal">✏️ Editar objetivo</button>
       </div>
@@ -2078,8 +2103,21 @@ renderAll();
    Modo con cuenta: los datos viven en Firestore, separados por usuario (users/{uid}),
    y localStorage funciona como caché rápida además. Nada de esto rompe el modo local. */
 const FIREBASE_CONFIG_KEY = 'libro_firebase_config';
+// Configuración por defecto de Firebase, incluida en la app para que funcione en cualquier
+// dispositivo sin tener que pegarla de nuevo. No es un dato secreto: la seguridad real la dan
+// las reglas de Firestore, no ocultar esta configuración.
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyB-62TuzSzzptE1WjcOO7qnOyVGNiYne1c",
+  authDomain: "gestordegastos-246d9.firebaseapp.com",
+  projectId: "gestordegastos-246d9",
+  storageBucket: "gestordegastos-246d9.firebasestorage.app",
+  messagingSenderId: "414712561283",
+  appId: "1:414712561283:web:e74180f7802774f93525b6",
+  measurementId: "G-LCRLJ11LVN"
+};
 let firebaseConfig = null;
 try{ firebaseConfig = JSON.parse(localStorage.getItem(FIREBASE_CONFIG_KEY) || 'null'); }catch(e){ firebaseConfig = null; }
+if(!firebaseConfig) firebaseConfig = DEFAULT_FIREBASE_CONFIG; // se puede sobreescribir con "Cambiar configuración de Firebase"
 let firebaseApp = null, firebaseAuth = null, firebaseDb = null;
 let currentUser = null; // usuario de Firebase Auth, null = sin sesión
 let guestMode = localStorage.getItem('libro_guest_mode') === '1';
